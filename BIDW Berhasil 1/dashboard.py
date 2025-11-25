@@ -12,38 +12,37 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Inisialisasi State Dark Mode jika belum ada
+# Inisialisasi State Dark Mode
 if 'dark_mode' not in st.session_state:
     st.session_state['dark_mode'] = False
 
 # --- 2. DEFINISI WARNA (PALET DINAMIS) ---
 if st.session_state['dark_mode']:
-    # --- DARK MODE PALETTE ---
+    # DARK MODE
     THEME = {
-        "bg": "#0f172a",          # Background Gelap (Deep Navy)
-        "card": "#1e293b",        # Kartu Sedikit Lebih Terang
-        "text_main": "#f8fafc",   # Putih Terang
-        "text_sub": "#94a3b8",    # Abu Terang
-        "sidebar": "#020617",     # Sidebar Sangat Gelap
-        "border": "#334155",      # Border Abu Gelap
+        "bg": "#0f172a",
+        "card": "#1e293b",
+        "text_main": "#f8fafc",
+        "text_sub": "#94a3b8",
+        "sidebar": "#020617",
+        "border": "#334155",
         "chart_bg": "#1e293b",
-        "plotly_theme": "plotly_dark"
+        "plotly_theme": "plotly_dark" # Tema Plotly Gelap
     }
 else:
-    # --- LIGHT MODE PALETTE (DEFAULT) ---
+    # LIGHT MODE
     THEME = {
-        "bg": "#f3f4f6",          # Abu Sangat Muda
-        "card": "#ffffff",        # Putih
-        "text_main": "#111827",   # Hitam Pekat
-        "text_sub": "#6b7280",    # Abu Gelap
-        "sidebar": "#1f2937",     # Sidebar Abu Tua
-        "border": "#e5e7eb",      # Border Abu Muda
+        "bg": "#f3f4f6",
+        "card": "#ffffff",
+        "text_main": "#111827",
+        "text_sub": "#6b7280",
+        "sidebar": "#1f2937",
+        "border": "#e5e7eb",
         "chart_bg": "#ffffff",
-        "plotly_theme": "plotly_white"
+        "plotly_theme": "plotly_white" # Tema Plotly Terang
     }
 
 # --- 3. INJEKSI CSS DINAMIS ---
-# Kita menggunakan f-string Python untuk memasukkan variabel warna ke dalam CSS
 st.markdown(f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
@@ -53,23 +52,15 @@ st.markdown(f"""
         color: {THEME['text_main']};
     }}
     
-    /* Background Utama App */
-    .stApp {{
-        background-color: {THEME['bg']};
-    }}
+    .stApp {{ background-color: {THEME['bg']}; }}
 
-    /* Sidebar Customization */
+    /* Sidebar */
     [data-testid="stSidebar"] {{
         background-color: {THEME['sidebar']};
         border-right: 1px solid {THEME['border']};
     }}
-    [data-testid="stSidebar"] * {{
-        color: #94a3b8 !important; /* Text Sidebar selalu agak terang */
-    }}
-    [data-testid="stSidebar"] h1 {{
-        color: white !important;
-        border-bottom: 1px solid #334155;
-    }}
+    [data-testid="stSidebar"] * {{ color: #94a3b8 !important; }}
+    [data-testid="stSidebar"] h1 {{ color: white !important; border-bottom: 1px solid #334155; }}
 
     /* KPI Cards */
     .kpi-card {{
@@ -78,10 +69,7 @@ st.markdown(f"""
         border-radius: 12px;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         border: 1px solid {THEME['border']};
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 10px;
+        display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
     }}
     .kpi-text h3 {{ margin: 0; font-size: 14px; color: {THEME['text_sub']}; font-weight: 500; }}
     .kpi-text h2 {{ margin: 5px 0 0 0; font-size: 24px; color: {THEME['text_main']}; font-weight: 700; }}
@@ -98,39 +86,21 @@ st.markdown(f"""
         border: 1px solid {THEME['border']};
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }}
-    .chart-container h3 {{
-        color: {THEME['text_main']};
-        font-size: 16px;
-        font-weight: 600;
-        margin-bottom: 15px;
-    }}
-
-    /* Custom Tables */
+    
+    /* Tables */
     .table-card {{
         background-color: {THEME['card']};
-        padding: 20px;
-        border-radius: 10px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        overflow-x: auto;
+        padding: 20px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow-x: auto;
     }}
     table.custom-table {{ width: 100%; border-collapse: collapse; color: {THEME['text_main']}; }}
     table.custom-table th {{
-        text-align: left; padding: 12px;
-        border-bottom: 2px solid {THEME['border']};
-        color: {THEME['text_sub']};
+        text-align: left; padding: 12px; border-bottom: 2px solid {THEME['border']}; color: {THEME['text_sub']};
     }}
-    table.custom-table td {{
-        padding: 12px;
-        border-bottom: 1px solid {THEME['border']};
-    }}
+    table.custom-table td {{ padding: 12px; border-bottom: 1px solid {THEME['border']}; }}
 
-    /* Header & Welcome Text */
     .welcome-text h4 {{ margin: 0; color: {THEME['text_main']}; font-weight: 700; }}
     .welcome-text small {{ color: {THEME['text_sub']}; }}
-
-    /* Toggle Switch Styling Hack */
     .stToggle p {{ color: {THEME['text_main']}; }}
-
 </style>
 """, unsafe_allow_html=True)
 
@@ -208,7 +178,6 @@ if selected_page == "Dashboard":
     with c3:
         st.markdown('<div class="chart-container"><h3>Sales Trend</h3>', unsafe_allow_html=True)
         if not df_trend.empty:
-            # Gunakan Theme Chart sesuai Mode
             fig = px.area(df_trend, x='month', y='total', markers=True, template=THEME['plotly_theme'])
             fig.update_traces(line_color='#3b82f6', fillcolor='rgba(59, 130, 246, 0.1)')
             fig.update_layout(
@@ -217,7 +186,8 @@ if selected_page == "Dashboard":
                 xaxis=dict(showgrid=False), yaxis=dict(showgrid=True, gridcolor=THEME['border']),
                 font=dict(color=THEME['text_sub'])
             )
-            st.plotly_chart(fig, use_container_width=True)
+            # PERBAIKAN PENTING: theme=None
+            st.plotly_chart(fig, use_container_width=True, theme=None) 
         st.markdown('</div>', unsafe_allow_html=True)
 
     with c4:
@@ -231,7 +201,8 @@ if selected_page == "Dashboard":
                 yaxis={'categoryorder':'total ascending'}, xaxis=dict(showgrid=False),
                 font=dict(color=THEME['text_sub'])
             )
-            st.plotly_chart(fig, use_container_width=True)
+            # PERBAIKAN PENTING: theme=None
+            st.plotly_chart(fig, use_container_width=True, theme=None)
         st.markdown('</div>', unsafe_allow_html=True)
 
 elif selected_page == "Products":
@@ -254,31 +225,18 @@ elif selected_page == "Customers":
     conn.close()
     st.markdown(render_html_table(df, {'id': 'ID', 'name': 'Name', 'country': 'Country'}), unsafe_allow_html=True)
 
-# >>> HALAMAN SETTINGS (DARK MODE AKTIF) <<<
 elif selected_page == "Settings":
     st.title("Settings")
-    
-    # Container dengan Style Card
     with st.container():
         st.markdown(f"""
         <div class="kpi-card" style="display:block; min-height:150px;">
             <h3 style="margin-bottom:20px; color:{THEME['text_main']};">Appearance</h3>
         </div>
         """, unsafe_allow_html=True)
-        
-        # Logic Toggle (Ditaruh di atas card menggunakan layout column agar rapi)
-        # Kita menggunakan st.toggle asli Streamlit
         col_txt, col_toggle = st.columns([3, 1])
-        
-        with col_txt:
-            # Teks deskripsi
-            st.write("Toggle theme to switch between Light and Dark mode.")
-            
+        with col_txt: st.write("Toggle theme to switch between Light and Dark mode.")
         with col_toggle:
-            # TOMBOL TOGGLE ASLI
             is_dark = st.toggle("Enable Dark Mode", value=st.session_state['dark_mode'])
-            
-            # Jika toggle berubah, update session state dan rerun
             if is_dark != st.session_state['dark_mode']:
                 st.session_state['dark_mode'] = is_dark
                 st.rerun()

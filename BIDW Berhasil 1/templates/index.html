@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Executive Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+</head>
+<body>
+
+    <nav class="sidebar">
+        <div class="logo"><i class="fa-solid fa-chart-line"></i><span>Sales Report</span></div>
+        <ul class="menu">
+            <li class="active"><a href="#" onclick="switchView('dashboard', this)"><i class="fa-solid fa-house"></i> Dashboard</a></li>
+            <li><a href="#" onclick="switchView('products', this)"><i class="fa-solid fa-box"></i> Products</a></li>
+            <li><a href="#" onclick="switchView('customers', this)"><i class="fa-solid fa-users"></i> Customers</a></li>
+            <li><a href="#" onclick="switchView('settings', this)"><i class="fa-solid fa-gear"></i> Settings</a></li>
+        </ul>
+    </nav>
+
+    <main class="main-content">
+        <header>
+            <div class="user-wrapper">
+                <div>
+                    <h4>Welcome Back,</h4>
+                    <small>Admin User</small>
+                </div>
+            </div>
+        </header>
+
+        <div id="view-dashboard" class="view-section">
+            <div class="content-header">
+                <h1>Overview</h1>
+                <select id="yearFilter" onchange="updateDashboard()">
+                    <option value="All">All Time</option>
+                </select>
+            </div>
+
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-info">
+                        <h3>Total Sales</h3>
+                        <h2 id="total-sales">$0</h2>
+                    </div>
+                    <div class="icon-box blue"><i class="fa-solid fa-dollar-sign"></i></div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-info">
+                        <h3>Total Orders</h3>
+                        <h2 id="total-orders">0</h2>
+                    </div>
+                    <div class="icon-box green"><i class="fa-solid fa-cart-shopping"></i></div>
+                </div>
+            </div>
+
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>Sales Trend</h3>
+                    </div>
+                    <div class="chart-body">
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>Top 5 Products by Sales</h3>
+                    </div>
+                    <div class="chart-body">
+                        <canvas id="topProductsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-products" class="view-section" style="display: none;">
+            <div class="content-header">
+                <h1>Product List</h1>
+            </div>
+            <div class="card table-card">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Product Name</th>
+                            <th>Category</th>
+                            <th>Total Sales</th>
+                        </tr>
+                    </thead>
+                    <tbody id="products-table-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="view-customers" class="view-section" style="display: none;">
+            <div class="content-header">
+                <h1>Customer List</h1>
+            </div>
+            <div class="card table-card">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Country</th>
+                        </tr>
+                    </thead>
+                    <tbody id="customers-table-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="view-settings" class="view-section" style="display: none;">
+            <div class="content-header">
+                <h1>Settings</h1>
+            </div>
+            <div class="card" style="max-width: 400px; padding: 20px;">
+                <h3>Appearance</h3>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px;">
+                    <span>Dark Mode</span>
+                    <label class="switch">
+                        <input type="checkbox" id="darkModeToggle" onchange="toggleDarkMode()">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        let trendChartInstance = null;
+        let productChartInstance = null;
+
+        function switchView(viewName, element) {
+            document.querySelectorAll('.view-section').forEach(s => s.style.display = 'none');
+            document.getElementById('view-' + viewName).style.display = 'block';
+            document.querySelectorAll('.menu li').forEach(l => l.classList.remove('active'));
+            element.parentElement.classList.add('active');
+
+            if (viewName === 'dashboard') updateDashboard();
+            if (viewName === 'products') loadProducts();
+            if (viewName === 'customers') loadCustomers();
+        }
+
+        // --- FUNGSI LOAD TAHUN (BARU) ---
+        function loadYears() {
+            fetch('/api/years')
+                .then(response => response.json())
+                .then(years => {
+                    const select = document.getElementById('yearFilter');
+                    // Reset isi dropdown, sisakan 'All Time'
+                    select.innerHTML = '<option value="All">All Time</option>';
+                    
+                    // Masukkan tahun yang tersedia dari database
+                    years.forEach(year => {
+                        const option = document.createElement('option');
+                        option.value = year;
+                        option.innerText = year;
+                        select.appendChild(option);
+                    });
+                })
+                .catch(err => console.error("Gagal memuat tahun:", err));
+        }
+
+        function updateDashboard() {
+            const year = document.getElementById('yearFilter').value;
+            
+            fetch(`/api/data?year=${year}`)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('total-sales').innerText = data.total_sales;
+                    document.getElementById('total-orders').innerText = data.total_orders;
+
+                    const ctxTrend = document.getElementById('trendChart').getContext('2d');
+                    if (trendChartInstance) trendChartInstance.destroy();
+                    trendChartInstance = new Chart(ctxTrend, {
+                        type: 'line',
+                        data: {
+                            labels: data.trend.labels,
+                            datasets: [{
+                                label: 'Sales',
+                                data: data.trend.values,
+                                borderColor: '#3b82f6',
+                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                fill: true,
+                                tension: 0.4
+                            }]
+                        },
+                        options: { responsive: true, maintainAspectRatio: false }
+                    });
+
+                    const ctxProd = document.getElementById('topProductsChart').getContext('2d');
+                    if (productChartInstance) productChartInstance.destroy();
+                    productChartInstance = new Chart(ctxProd, {
+                        type: 'bar',
+                        data: {
+                            labels: data.products.labels,
+                            datasets: [{
+                                label: 'Sales ($)',
+                                data: data.products.values,
+                                backgroundColor: ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#ef4444'],
+                                borderRadius: 5
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            indexAxis: 'y',
+                            plugins: { legend: { display: false } }
+                        }
+                    });
+                });
+        }
+
+        function loadProducts() {
+            fetch('/api/products_list').then(r => r.json()).then(data => {
+                let html = '';
+                data.forEach(i => html += `<tr><td>${i.Product_Name}</td><td>${i.Product_Line || '-'}</td><td>$${i.sales.toLocaleString()}</td></tr>`);
+                document.getElementById('products-table-body').innerHTML = html;
+            });
+        }
+
+        function loadCustomers() {
+            fetch('/api/customers_list').then(r => r.json()).then(data => {
+                let html = '';
+                data.forEach(i => html += `<tr><td>${i.id}</td><td>${i.name}</td><td>${i.country}</td></tr>`);
+                document.getElementById('customers-table-body').innerHTML = html;
+            });
+        }
+
+        function toggleDarkMode() {
+            if (document.getElementById('darkModeToggle').checked) {
+                document.body.classList.add('dark-mode');
+                localStorage.setItem('theme', 'dark');
+            } else {
+                document.body.classList.remove('dark-mode');
+                localStorage.setItem('theme', 'light');
+            }
+        }
+
+        window.onload = function() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') {
+                document.body.classList.add('dark-mode');
+                document.getElementById('darkModeToggle').checked = true;
+            }
+            
+            // Panggil fungsi loadYears dulu, baru updateDashboard
+            loadYears(); 
+            updateDashboard();
+        };
+    </script>
+</body>
+</html>

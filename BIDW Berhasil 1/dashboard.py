@@ -4,80 +4,69 @@ from sqlalchemy import create_engine, text, pool
 import plotly.express as px
 import os
 
-# --- 1. CONFIG & SESSION STATE ---
-try:
-    st.set_page_config(
-        page_title="Executive Dashboard",
-        page_icon="📊",
-        layout="wide",
-        initial_sidebar_state="expanded"
-    )
-except:
-    pass # Hindari error jika config dipanggil dua kali
+# --- 1. CONFIG HALAMAN (WAJIB PALING ATAS) ---
+st.set_page_config(
+    page_title="Executive Dashboard",
+    page_icon="📊",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-# Inisialisasi State Dark Mode
-if 'dark_mode' not in st.session_state:
-    st.session_state['dark_mode'] = False
+# --- 2. STATE MANAGEMENT (FITUR STABIL) ---
+# Inisialisasi status Dark Mode jika belum ada
+if "dark_mode" not in st.session_state:
+    st.session_state["dark_mode"] = False
 
-# --- 2. CEK DATABASE (DEBUGGING) ---
-db_filename = 'my_data_warehouse.db'
-db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), db_filename)
+# Ambil status saat ini dengan aman
+is_dark_mode = st.session_state.get("dark_mode", False)
 
-if not os.path.exists(db_path):
-    st.error(f"❌ ERROR FATAL: File database '{db_filename}' tidak ditemukan!")
-    st.warning(f"Sistem mencari di folder ini: {os.path.dirname(db_path)}")
-    st.info("👉 Pastikan file 'dashboard.py' dan 'my_data_warehouse.db' ada di folder yang SAMA.")
-    st.stop() # Hentikan aplikasi jika DB tidak ada
-
-# --- 3. DEFINISI WARNA (PALET DINAMIS) ---
-if st.session_state['dark_mode']:
-    # DARK MODE
+# --- 3. DEFINISI TEMA (WARNA) ---
+if is_dark_mode:
+    # DARK MODE PALETTE
     THEME = {
         "bg": "#0f172a", "card": "#1e293b", "text_main": "#f8fafc",
         "text_sub": "#94a3b8", "sidebar": "#020617", "border": "#334155",
-        "chart_bg": "#1e293b", "plotly_theme": "plotly_dark"
+        "chart_bg": "#1e293b", "plotly_theme": "plotly_dark",
+        "icon_bg": "rgba(255,255,255,0.05)"
     }
 else:
-    # LIGHT MODE
+    # LIGHT MODE PALETTE
     THEME = {
         "bg": "#f3f4f6", "card": "#ffffff", "text_main": "#111827",
         "text_sub": "#6b7280", "sidebar": "#1f2937", "border": "#e5e7eb",
-        "chart_bg": "#ffffff", "plotly_theme": "plotly_white"
+        "chart_bg": "#ffffff", "plotly_theme": "plotly_white",
+        "icon_bg": "rgba(0,0,0,0.05)"
     }
 
-# --- 4. INJEKSI CSS AMAN ---
-# Menggunakan double curly braces {{ }} untuk CSS agar tidak bentrok dengan Python f-string
+# --- 4. INJEKSI CSS (SUPRES ERROR & PAKSA WARNA) ---
 st.markdown(f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
 
+    /* Global Override */
     html, body, [class*="css"] {{
         font-family: 'Inter', sans-serif;
     }}
     
-    /* BACKGROUND */
+    /* BACKGROUND UTAMA */
     .stApp {{
         background-color: {THEME['bg']};
     }}
 
-    /* PAKSA WARNA TEKS (Override Streamlit) */
-    h1, h2, h3, h4, h5, h6, p, span, div, label, .stMarkdown, .stText {{
+    /* PAKSA SEMUA TEKS BERUBAH WARNA */
+    h1, h2, h3, h4, h5, h6, p, span, div, label, .stMarkdown, .stText, .stMetricValue, .stMetricLabel {{
         color: {THEME['text_main']} !important;
     }}
     
-    /* SIDEBAR */
+    /* SIDEBAR KHUSUS */
     [data-testid="stSidebar"] {{
         background-color: {THEME['sidebar']};
         border-right: 1px solid {THEME['border']};
     }}
-    [data-testid="stSidebar"] h1 {{
-        color: white !important;
-    }}
-    [data-testid="stSidebar"] * {{
-        color: #94a3b8 !important; /* Sidebar text tetap abu terang */
-    }}
+    [data-testid="stSidebar"] h1 {{ color: white !important; }}
+    [data-testid="stSidebar"] span {{ color: #94a3b8 !important; }}
 
-    /* CARDS */
+    /* KPI CARDS (KARTU) */
     .kpi-card {{
         background-color: {THEME['card']};
         padding: 20px;
@@ -91,7 +80,10 @@ st.markdown(f"""
     }}
     
     /* ICONS */
-    .icon-box {{ width: 50px; height: 50px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 24px; }}
+    .icon-box {{ 
+        width: 50px; height: 50px; border-radius: 10px; 
+        display: flex; align-items: center; justify-content: center; font-size: 24px; 
+    }}
     .icon-blue {{ background: rgba(59, 130, 246, 0.2); color: #3b82f6 !important; }}
     .icon-green {{ background: rgba(16, 185, 129, 0.2); color: #10b981 !important; }}
     
@@ -122,74 +114,84 @@ st.markdown(f"""
         border-radius: 12px;
         border: 1px solid {THEME['border']};
     }}
+    
+    /* HIDE DEFAULT HEADER STRIP */
+    header[data-testid="stHeader"] {{
+        background-color: {THEME['bg']};
+    }}
 </style>
 """, unsafe_allow_html=True)
 
-# --- 5. KONEKSI DATABASE (DENGAN NULLPOOL) ---
-# Menggunakan NullPool mencegah error 'Database is locked'
+# --- 5. KONEKSI DATABASE AMAN (ANTI-LOCK) ---
 @st.cache_resource
 def get_engine():
+    # Pastikan path benar
+    db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'my_data_warehouse.db')
+    # Gunakan NullPool agar SQLite tidak terkunci (Database Locked Error)
     return create_engine(f'sqlite:///{db_path}', poolclass=pool.NullPool)
 
 engine = get_engine()
 
-# --- 6. NAVIGASI & SIDEBAR ---
+# --- 6. SIDEBAR MENU ---
 with st.sidebar:
     st.markdown("<h1>📊 DataViz</h1>", unsafe_allow_html=True)
     selected_page = st.radio("Menu", ["Dashboard", "Products", "Customers", "Settings"], label_visibility="collapsed")
     st.markdown("---")
     
-    # Ambil Tahun
+    # Ambil Tahun (Error Handling jika DB sibuk)
     years = []
     try:
         conn = engine.connect()
         df_years = pd.read_sql(text("SELECT DISTINCT strftime('%Y', Order_Date) as y FROM FactSales WHERE y IS NOT NULL ORDER BY y DESC"), conn)
         years = df_years['y'].tolist()
         conn.close()
-    except Exception as e:
-        st.error(f"DB Error: {e}")
+    except:
+        pass # Jika gagal load tahun, biarkan kosong dulu
 
     selected_year = 'All Time'
     if selected_page == "Dashboard":
         st.write("**Filter Year**")
-        selected_year = st.selectbox("Select Year", ['All Time'] + years)
+        if years:
+            selected_year = st.selectbox("Select Year", ['All Time'] + years)
 
-# --- 7. KONTEN HALAMAN ---
+# --- 7. LOGIKA HALAMAN ---
 
-# Header Umum
+# Header Halaman
 st.markdown(f"""
 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
     <div>
         <h2 style="margin:0;">{selected_page}</h2>
         <small style="color:{THEME['text_sub']} !important;">Welcome Back, Admin</small>
     </div>
-    <div style="text-align:right;">
-        <span style="color:{THEME['text_sub']} !important;">{selected_year if selected_page=='Dashboard' else ''}</span>
-    </div>
 </div>
 """, unsafe_allow_html=True)
 
-# >>> HALAMAN DASHBOARD
+# >>> DASHBOARD
 if selected_page == "Dashboard":
     try:
         conn = engine.connect()
         filter_sql = "" if selected_year == 'All Time' else f"WHERE strftime('%Y', Order_Date) = '{selected_year}'"
 
-        # KPI Query
+        # Query Data
         sales = pd.read_sql(text(f"SELECT IFNULL(SUM(Sales_Amount), 0) FROM FactSales {filter_sql}"), conn).iloc[0,0]
         orders = pd.read_sql(text(f"SELECT COUNT(*) FROM FactSales {filter_sql}"), conn).iloc[0,0]
         
-        # Trend Query
-        trend_q = text(f"SELECT strftime('%Y-%m', Order_Date) as month, SUM(Sales_Amount) as total FROM FactSales {filter_sql} GROUP BY month ORDER BY month")
-        df_trend = pd.read_sql(trend_q, conn)
+        # Trend
+        df_trend = pd.read_sql(text(f"SELECT strftime('%Y-%m', Order_Date) as month, SUM(Sales_Amount) as total FROM FactSales {filter_sql} GROUP BY month ORDER BY month"), conn)
         
-        # Top Products Query
-        prod_q = text(f"SELECT p.Product_Name, SUM(f.Sales_Amount) as total FROM FactSales f JOIN (SELECT DISTINCT Product_Key, Product_Name FROM DimProduct) p ON p.Product_Key LIKE '%' || f.Product_Key {filter_sql} GROUP BY p.Product_Name ORDER BY total DESC LIMIT 5")
-        df_prod = pd.read_sql(prod_q, conn)
-        
+        # Top Products (Fixed Logic)
+        prod_sql = f"""
+            SELECT p.Product_Name, SUM(f.Sales_Amount) as total 
+            FROM FactSales f 
+            JOIN (SELECT DISTINCT Product_Key, Product_Name FROM DimProduct) p 
+            ON p.Product_Key LIKE '%' || f.Product_Key 
+            {filter_sql} 
+            GROUP BY p.Product_Name ORDER BY total DESC LIMIT 5
+        """
+        df_prod = pd.read_sql(text(prod_sql), conn)
         conn.close()
 
-        # KPI Display (Custom HTML)
+        # KPI CARDS
         c1, c2 = st.columns(2)
         c1.markdown(f"""
         <div class="kpi-card">
@@ -211,7 +213,7 @@ if selected_page == "Dashboard":
         </div>
         """, unsafe_allow_html=True)
 
-        # Charts
+        # CHARTS
         c3, c4 = st.columns(2)
         
         with c3:
@@ -233,25 +235,30 @@ if selected_page == "Dashboard":
             st.markdown('</div>', unsafe_allow_html=True)
 
     except Exception as e:
-        st.error(f"Terjadi kesalahan saat memuat Dashboard: {e}")
+        st.error(f"Gagal memuat data dashboard. Error: {e}")
 
-# >>> HALAMAN PRODUCTS
+# >>> PRODUCTS
 elif selected_page == "Products":
     try:
         conn = engine.connect()
-        q = text("""SELECT p.Product_Name, p.Product_Line, IFNULL(SUM(f.Sales_Amount), 0) as sales FROM (SELECT DISTINCT Product_Key, Product_Name, Product_Line FROM DimProduct) p LEFT JOIN FactSales f ON p.Product_Key LIKE '%' || f.Product_Key GROUP BY p.Product_Name ORDER BY sales DESC LIMIT 50""")
+        # Query product list (logic sama dengan app.py)
+        q = text("""
+            SELECT p.Product_Name, p.Product_Line, IFNULL(SUM(f.Sales_Amount), 0) as sales 
+            FROM (SELECT DISTINCT Product_Key, Product_Name, Product_Line FROM DimProduct) p 
+            LEFT JOIN FactSales f ON p.Product_Key LIKE '%' || f.Product_Key 
+            GROUP BY p.Product_Name ORDER BY sales DESC LIMIT 50
+        """)
         df = pd.read_sql(q, conn)
         conn.close()
         
-        # Render Table
         html = f'<div class="table-card"><table class="custom-table"><thead><tr><th>Product Name</th><th>Category</th><th>Total Sales</th></tr></thead><tbody>'
         for _, r in df.iterrows():
             html += f"<tr><td>{r['Product_Name']}</td><td>{r['Product_Line'] or '-'}</td><td>${r['sales']:,.2f}</td></tr>"
         html += '</tbody></table></div>'
         st.markdown(html, unsafe_allow_html=True)
-    except Exception as e: st.error(f"Error: {e}")
+    except Exception as e: st.error(f"Error Products: {e}")
 
-# >>> HALAMAN CUSTOMERS
+# >>> CUSTOMERS
 elif selected_page == "Customers":
     try:
         conn = engine.connect()
@@ -263,19 +270,24 @@ elif selected_page == "Customers":
             html += f"<tr><td>{r['Customer_ID']}</td><td>{r['name']}</td><td>{r['country']}</td></tr>"
         html += '</tbody></table></div>'
         st.markdown(html, unsafe_allow_html=True)
-    except Exception as e: st.error(f"Error: {e}")
+    except Exception as e: st.error(f"Error Customers: {e}")
 
-# >>> HALAMAN SETTINGS
+# >>> SETTINGS (PERBAIKAN UTAMA)
 elif selected_page == "Settings":
+    # Gunakan Container Card
     st.markdown(f"""
     <div class="kpi-card" style="display:block;">
         <h3 style="margin-bottom:10px;">Appearance</h3>
-        <p style="font-size:14px; color:{THEME['text_sub']} !important;">Toggle switch di bawah untuk mengubah tema.</p>
+        <p style="font-size:14px; color:{THEME['text_sub']} !important;">Toggle switch di bawah untuk mengubah tema Light/Dark.</p>
     </div>
     """, unsafe_allow_html=True)
     
-    # Toggle Switch
-    is_dark = st.toggle("Enable Dark Mode", value=st.session_state['dark_mode'])
-    if is_dark != st.session_state['dark_mode']:
-        st.session_state['dark_mode'] = is_dark
-        st.rerun()
+    # --- LOGIKA TOGGLE YANG AMAN ---
+    # Kita gunakan parameter 'key' agar Streamlit yang mengurus statenya.
+    # Tidak perlu if manual atau st.rerun().
+    st.toggle("Enable Dark Mode", key="dark_mode")
+    
+    # Penjelasan: Saat toggle diklik, Streamlit otomatis update st.session_state['dark_mode'] 
+    # dan melakukan RERUN script dari awal.
+    # Di awal script (Baris 20), 'is_dark_mode' akan mengambil nilai baru tersebut
+    # dan tema akan berubah otomatis.
